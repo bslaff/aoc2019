@@ -30,24 +30,26 @@ class IntcodeComputerNode:
 		print(f"{self.name}: {x}")
 		return 0
 
-	def get_param_value(self, p_idx, mval):
+	def get_param_addr_value(self, p_idx, mval):
 
 		self.maybe_extend_memory(p_idx)
 
 		if mval==0: #parameter mode
 			self.maybe_extend_memory( self.prog[p_idx] )
-			return self.prog[ self.prog[p_idx] ]
+			addr=self.prog[p_idx]
+			val=self.prog[ self.prog[p_idx] ]
 		elif mval==1: #immediate mode
-			return self.prog[ p_idx ]
+			addr=p_idx
+			val=self.prog[p_idx]
 		elif mval==2:
 			self.maybe_extend_memory( self.prog[p_idx] + self.relative_base )
-			self.debug(p_idx)
-			self.debug(self.prog[p_idx])
-			self.debug(self.prog[p_idx] + self.relative_base)
-			return self.prog[ self.prog[p_idx] + self.relative_base ]
+			addr=self.prog[p_idx] + self.relative_base
+			val=self.prog[ self.prog[p_idx] + self.relative_base ]
 
-		print("SQAWK!!")
-		return False
+		else:
+			print(f"Uh oh, invalid mval: {mval}")
+
+		return (addr, val)
 
 	def maybe_extend_memory(self, dest):
 
@@ -76,20 +78,23 @@ class IntcodeComputerNode:
 				break
 
 			(operation, modes) = decode_opcode(opcode)
+			self.debug(f"The operation is: {operation}")
 
 			if operation==1: # add
-				val1 = self.get_param_value(self.instr_ptr+1, modes[2])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[1])
-				dest = self.prog[self.instr_ptr+3]
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[2])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[1])
+				# dest = self.prog[self.instr_ptr+3]
+				(dest, val3) = self.get_param_addr_value(self.instr_ptr+3, modes[0])
 				self.debug(f"Add {val1} to {val2} and store at {dest}")
 				self.maybe_extend_memory(dest)
 				self.prog[dest] = val1 + val2
 				self.instr_ptr += 4
 
 			elif operation==2: # multiply
-				val1 = self.get_param_value(self.instr_ptr+1, modes[2])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[1])
-				dest = self.prog[self.instr_ptr+3]
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[2])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[1])
+				# dest = self.prog[self.instr_ptr+3]
+				(dest, val3) = self.get_param_addr_value(self.instr_ptr+3, modes[0])
 				self.debug(f"Multiply {val1} to {val2} and store at {dest}")
 				self.maybe_extend_memory(dest)
 				self.prog[dest] = val1 * val2
@@ -98,7 +103,7 @@ class IntcodeComputerNode:
 			elif operation==3:
 				# save_input
 				# dest = self.prog[self.instr_ptr+1]
-				dest = self.get_param_value(self.instr_ptr+1, modes[0])
+				(dest, val) = self.get_param_addr_value(self.instr_ptr+1, modes[0])
 
 				if self.input_ptr < NUM_INPUTS:
 					input_val = self.inputs[self.input_ptr]
@@ -117,14 +122,14 @@ class IntcodeComputerNode:
 				self.instr_ptr += 2
 
 			elif operation==4: # output
-				output_val = self.get_param_value(self.instr_ptr+1, modes[0])
+				(addr, output_val) = self.get_param_addr_value(self.instr_ptr+1, modes[0])
 				self.debug(f"Output {output_val}.")
 				self.outputs.append(output_val)
 				self.instr_ptr += 2
 
 			elif operation==5: # jump if true
-				val1 = self.get_param_value(self.instr_ptr+1, modes[1])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[0])
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[1])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[0])
 				if val1 != 0:
 					self.debug(f"Jump from {self.instr_ptr} to {val2}.")
 					self.instr_ptr = val2
@@ -133,8 +138,8 @@ class IntcodeComputerNode:
 					self.instr_ptr += 3
 
 			elif operation==6: # jump if false
-				val1 = self.get_param_value(self.instr_ptr+1, modes[1])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[0])
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[1])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[0])
 				if val1 == 0:
 					self.debug(f"Jump from {self.instr_ptr} to {val2}.")
 					self.instr_ptr = val2
@@ -143,9 +148,9 @@ class IntcodeComputerNode:
 					self.instr_ptr += 3
 
 			elif operation==7: # less than
-				val1 = self.get_param_value(self.instr_ptr+1, modes[2])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[1])
-				dest = self.prog[self.instr_ptr+3]
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[2])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[1])
+				(dest, val3) = self.get_param_addr_value(self.instr_ptr+3, modes[0])
 				self.maybe_extend_memory(dest)
 				if val1 < val2:
 					self.debug(f"Since {val1} < {val2}, store 1 at {dest}.")
@@ -156,9 +161,9 @@ class IntcodeComputerNode:
 				self.instr_ptr += 4
 
 			elif operation==8: # equals
-				val1 = self.get_param_value(self.instr_ptr+1, modes[2])
-				val2 = self.get_param_value(self.instr_ptr+2, modes[1])
-				dest = self.prog[self.instr_ptr+3]
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[2])
+				(addr2, val2) = self.get_param_addr_value(self.instr_ptr+2, modes[1])
+				(dest, val3) = self.get_param_addr_value(self.instr_ptr+3, modes[0])
 				self.maybe_extend_memory(dest)
 				if val1 == val2:
 					self.debug(f"Store 1 at {dest}.")
@@ -169,12 +174,13 @@ class IntcodeComputerNode:
 				self.instr_ptr += 4
 
 			elif operation==9: # change relative base
-				val1 = self.get_param_value(self.instr_ptr+1, modes[0])
+				(addr1, val1) = self.get_param_addr_value(self.instr_ptr+1, modes[0])
 				self.debug(f"Adjusting relative base from {self.relative_base} to {self.relative_base+val1}.")
 				self.relative_base += val1
 				self.instr_ptr += 2
 
 			else:
+				self.debug(f"I am SQUAWK because the operation is: {operation}")
 				self.debug("SQUAWK")
 
 
