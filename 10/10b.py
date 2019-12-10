@@ -73,10 +73,10 @@ def get_theta(pair):
 		return 0 # hopefully never
 
 	if x>0:
-		return 90+(180-np.arccos(y/hyp))
+		return 90+( 180-np.degrees(np.arccos(y/hyp)) )
 
 	#x<0
-	return 180+np.arccos(y/hyp)
+	return 180+np.degrees( np.arccos(y/hyp) )
 
 
 
@@ -88,44 +88,57 @@ def run_main():
 	max_in_sight = -np.inf
 	max_idx = None
 
-	targ = np.asarray([COORDS, HERE])
+	# targ = np.asarray([29, 28])
+	targ = np.asarray([11, 13])
 
 	cent_coords = coords_arr - targ
 
 	ratio_coords = np.apply_along_axis(get_ratios, 1, cent_coords).astype(int) # handles divide-by-zero case
 
-	thetas = np.apply_along_axis(get_theta, 1, ratio_coords).astype(int)
+	thetas = np.apply_along_axis(get_theta, 1, ratio_coords).astype(float)
 
 	dsq = np.sum( np.power(cent_coords, 2), axis=1 ).astype(int)
 
-	final = np.zeros( (coords_arr.shape[0], 6) )
+	final = np.zeros( (coords_arr.shape[0], 7) ).astype(float)
 	final[:, 0:2]=coords_arr
 	final[:, 2:4]=ratio_coords
 	final[:, 4]=thetas # should be 0 for (0,1) going clockwise up to 359...
 	final[:, 5]=dsq
+	final[:,6]=[-1]*final.shape[0] # will contain final order
 
-	final=final[final[:,4:6].argsort()].astype(int)
-	# now columns 0-1 are original coords, 2-3 are reduced ratio coords, 4 is theta (clockwise from top), 5 is sq distance from target, sorted by THETA then DSQ
+	final=final[final[:,4].argsort()]
+	# now columns 0-1 are original coords, 2-3 are reduced ratio coords, 4 is theta (clockwise from top), 5 is sq distance from target, sorted by THETA
+	# now will pass through and set destroy order for one ast at a time per theta, in order of increasing theta (theta=0 should be 12 oclock, not 3 oclock)
 
-	final_order = []
-	final_order.append()
+	order_idx = 1 # count from ONE not ZERO so that 200th is right
+	last_added_theta = -1
+	last_added_j = -1
 
-	for j in range(1,final.shape[0]):
+	while np.min( final[:,6] ) < 1:
 
+		for j in range(final.shape[0]):
 
-	d = dict()
-	for j in range(final.shape[0]):
-		x = tuple(final[j,2:4])
-		if x not in s and x!=(0,0):
-			d[x]=tuple(final[j,0:2])
+			this_order = final[j,6]
+			this_theta = final[j,4]
 
-	L = len(s)
-	if L > max_in_sight:
-		max_in_sight=L
-		max_idx = i
+			if this_order >= 1:
+				continue
 
-	print(max_in_sight)
-	print(coords_arr[max_idx,:])
+			if last_added_theta == this_theta:
+				continue
+			else:
+				final[j,6] = order_idx
+				order_idx += 1
+				last_added_theta = this_theta
+
+		last_added_theta = -1 # reset for each new circle
+
+	final=final[final[:,6].argsort()]
+
+	print("FINAL")
+	print(final[199,6])
+	print(final[199,4])
+	print(final[199,:])
 
 	return 0
 
