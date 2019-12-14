@@ -231,6 +231,13 @@ def run_main():
 
 	best_fuel_production = lower_bound
 
+	min_ore = get_min_ore(nodes_d, idx_d, best_fuel_production)
+
+	while min_ore <= args.input_ore:
+		min_ore = get_min_ore(nodes_d, idx_d, best_fuel_production+1)
+		if min_ore <= args.input_ore:
+			best_fuel_production += 1
+
 	print(f"The most fuel we can produce is {best_fuel_production}")
 
 	return 0
