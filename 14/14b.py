@@ -231,13 +231,6 @@ def run_main():
 
 	best_fuel_production = lower_bound
 
-	# best_fuel_production = current_guess
-	# # Our current guess may be right but need to make sure it's the largest
-	# while min_ore == args.input_ore:
-	# 	best_fuel_production = current_guess
-	# 	current_guess -= 1
-	# 	min_ore = get_min_ore(nodes_d, idx_d, current_guess)
-
 	print(f"The most fuel we can produce is {best_fuel_production}")
 
 	return 0
