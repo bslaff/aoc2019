@@ -24,7 +24,7 @@ def run_main():
 	# print_map(arr)
 	# print(arr.shape)
 
-	## strategy: first do dijkstra from each key to ALL other keys. Get min distance from each key to each other key. also from start position to each key.
+	## strategy: first do dijkstra from each key to ALL other keys. Get min distance from each key to each other key. also from each start position to each key.
 	## while doing this, keep track of dependencies (doors) we run into on each path. 
 	## Assumption: no cycles / multiple dependency paths, i.e. a dependency must be resolved (prove this?), and resolving it is sufficient.
 
@@ -43,15 +43,20 @@ def run_main():
 	arr_visited = np.zeros(shape=arr.shape)
 	arr_visited[ arr=='@' ] = 1
 
-	x_start = np.argwhere(arr_visited)[0][1]
-	y_start = np.argwhere(arr_visited)[0][0]
+	start_positions = np.argwhere(arr_visited)
 
-	keys_d['start'] = dict()
-	keys_d['start']['x'] = x_start
-	keys_d['start']['y'] = y_start
-	keys_d['start']['dependencies'] = set()
+	for i in range(np.argwhere(arr_visited).shape[0]):
 
-	# print(f"x_start {x_start}, y_start {y_start}")
+		start_pos = start_positions[i]
+
+		k = str(i)
+
+		keys_d[k] = dict()
+		keys_d[k]['x'] = start_pos[1]
+		keys_d[k]['y'] = start_pos[0]
+		keys_d[k]['dependencies'] = set()
+
+		arr[ keys_d[k]['y'], keys_d[k]['x'] ] = str(k)
 
 	final_keys_d = dict()
 	
@@ -61,63 +66,37 @@ def run_main():
 		# print(f"x {x}, y {y}")
 		final_keys_d[c] = dijkstra(arr, x, y, deepcopy( keys_d ) )
 
+	starts = ['0', '1', '2', '3']
+	### Diagnostic, check the keys
+	#for start in starts:
+	# 	print(f"start {start}")
+	# 	for key_name in final_keys_d[start].keys():
+	# 		print(f"{key_name}: {final_keys_d[start][key_name]['dist']}, {final_keys_d[start][key_name]['dependencies']}")
+
+	# 	print()
+	# exit()
+	### End diagnostic
+
 	### Real solution: A*
-	# The key to A* is determining the state space. In the simplest A* it's graph node only.
-	# In our case, it's graph node AND keys collected.
-	# In this conception, there are several concrete goal nodes (any with all keys collected)
-	# g(n) distance traveled up to this point 
-	# h(n) heuristic: max distance to SOME remaining key
-	# this heuristic is admissible: always underestimates true cost
-	# open set: unexplored states we can access
-	# closed set: states we already accessed (crucially, includes keys collected)
-	# should work!
-	#
-	# One remark: in fact doing this with the reduction to keys and distances allows inadmissable states
-	# for example, if you have to go through a to get b, that isn't reflected in choosing to go from c to b.
-	# but, in cases where you're forced like that, it may not affect the final step count anyway.
+	# See 18a for more notes.
+	# now each "state" includes four positions (in order), but is not otherwise different
 
 	## Minor optimization: convert all dependencies to lower case, sets
-	for k_name in final_keys_d["start"].keys():
-		final_keys_d["start"][k_name]["dependencies"] = set( [k.lower() for k in final_keys_d["start"][k_name]["dependencies"]] )
+	for start in starts:
+		for k_name in final_keys_d[start].keys():
+			final_keys_d[start][k_name]["dependencies"] = set( [k.lower() for k in final_keys_d[start][k_name]["dependencies"]] )
 
 	all_keys = set(final_keys_d.keys())
 
-	(best_path, best_dist) = A_Star(('start', frozenset(['start'])), final_keys_d, all_keys)
+	(best_path, best_dist) = A_Star(('0','1','2','3', frozenset(['0','1','2','3'])), final_keys_d, all_keys)
 
 	print(f"The best path was: {best_path}")
 	print(f"The minimum number of required steps to collect all keys is: {best_dist}")
 
-	# After optimizations, runtime down to 45 sec.
-	# The best path was: ['start', 'r', 't', 'k', 'b', 'e', 'm', 'c', 'a', 'p', 'f', 'o', 'h', 'v', 'j', 'y', 'w', 'g', 'q', 'u', 'i', 'x', 'd', 'l', 'n', 's', 'z']
-	# The minimum number of required steps to collect all keys is: 2946
-
+	# Runtime 10 sec.
 	### End of real A* solution
 
 	return 0
-
-def h(key_name, to_collect, keys_d):
-	
-	## greedy, door-unaware path to collecting all remaining keys
-	## no. greedy might not be right.
-	## mm. might need instead an A* optimal path to collecting all remaining keys, regardless of doors.
-	## well then. this is double A*. but then what is the h for the inner a*? 
-	## yikes
-	## ok: how about, distance to the farthest single key
-	## that definitely is a lower bound for the distance to cover. just maybe too low. 
-	## yeah, I think that's it.
-	## well let's start with that. simplest is best, go to a more complicated heuristic if we have to.
-	if len(to_collect)==0:
-		return 0
-
-	return max( [keys_d[key_name][target]['dist'] for target in to_collect] )
-
-# based on Wikipedia A* pseudocode
-def reconstruct_path(cameFrom, current_state):
-	total_path = [current_state[0]]
-	while current_state in cameFrom.keys():
-		current_state = cameFrom[current_state]
-		total_path.insert(0, current_state[0])
-	return total_path
 
 # A* finds a path from start to goal.
 # h is the heuristic function. h(n) estimates the cost to reach goal from node n.
@@ -144,7 +123,7 @@ def A_Star(start_state, keys_d, all_keys):
 	fScore = dict()
 	# for key_name in all_keys:
 	# 	fScore[key_name] = np.inf
-	fScore[start_state] = h(start_state[0], all_keys - start_state[1], keys_d)
+	fScore[start_state] = h(start_state, all_keys - start_state[-1], keys_d)
 
 	while len(openSet)>0:
 		#current := the node in openSet having the lowest fScore[] value
@@ -157,6 +136,7 @@ def A_Star(start_state, keys_d, all_keys):
 		current_state = least_state
 
 		if all_keys_collected(current_state, all_keys):
+			print(f"YAY! All keys collected.")
 			full_path = reconstruct_path(cameFrom, current_state)
 			return (full_path, gScore[current_state])
 
@@ -164,16 +144,25 @@ def A_Star(start_state, keys_d, all_keys):
 		closedSet.add(current_state)
 		openSet.remove(current_state)
 
-		collected = current_state[1]
+		collected = current_state[-1]
 		to_collect = all_keys - collected
-		neighbors = get_unblocked_neighbors(keys_d, to_collect, collected, closedSet)
+
+		current_positions = [current_state[0], current_state[1], current_state[2], current_state[3]]
+		neighbors = get_unblocked_neighbors(current_positions, keys_d, to_collect, collected, closedSet)
 
 		# print(f"Evaluating state {current_state} with neighbors {neighbors}")
+		# print(f"Evaluating state: {current_state}")
+		# for n in neighbors:
+		# 	print(f"Neighbor: {n}")
+		# print(f"openSet: {openSet}")
+		# exit()
 
 		for neighbor_state in neighbors:
 			# d(current,neighbor) is the weight of the edge from current to neighbor
 			# tentative_gScore is the distance from start to the neighbor through current
-			tentative_gScore = gScore[current_state] + keys_d[current_state[0]][neighbor_state[0]]['dist']
+
+			# tentative_gScore = gScore[current_state] + keys_d[current_state[0]][neighbor_state[0]]['dist']
+			tentative_gScore = gScore[current_state] + get_state_dist(current_state, neighbor_state, keys_d)
 
 			if neighbor_state not in gScore.keys():
 				gScore[neighbor_state] = np.inf
@@ -182,7 +171,10 @@ def A_Star(start_state, keys_d, all_keys):
 				# This path to neighbor is better than any previous one. Record it!
 				cameFrom[neighbor_state] = current_state # only recording the key name path
 				gScore[neighbor_state] = tentative_gScore
-				fScore[neighbor_state] = gScore[neighbor_state] + h(neighbor_state[0], to_collect - {neighbor_state[0]}, keys_d)
+
+				to_collect_neighbor = to_collect - {neighbor_state[0], neighbor_state[1], neighbor_state[2], neighbor_state[3]}
+
+				fScore[neighbor_state] = gScore[neighbor_state] + h(neighbor_state, to_collect_neighbor, keys_d)
 				if neighbor_state not in openSet:
 					openSet.add(neighbor_state)
 
@@ -190,31 +182,73 @@ def A_Star(start_state, keys_d, all_keys):
 	return False
 
 
-def get_unblocked_neighbors(keys_d, to_collect, collected, closedSet):
+def get_state_dist(current_state, neighbor_state, keys_d):
 
-	unblocked = [k_name for k_name in to_collect if keys_d["start"][k_name]["dependencies"].issubset( collected )]
-	# unblocked = frozenset([k_name for k_name in to_collect if is_unblocked(k_name, keys_d, collected, known_unblocked_keys)])
+	for i in [0, 1, 2, 3]:
+		if current_state[i]!=neighbor_state[i]:
+			return keys_d[current_state[i]][neighbor_state[i]]['dist']
 
-	neighbor_candidates = [(ub, frozenset(collected.union(ub))) for ub in unblocked]
-	# neighbor_candidates = [(ub, frozenset(collected.union(ub)), unblocked) for ub in unblocked]
+	# Yikes!
+	return False
 
-	neighbor_states = [candidate for candidate in neighbor_candidates if not candidate in closedSet]
+
+def get_unblocked_neighbors(current_positions, keys_d, to_collect, collected, closedSet):
+
+	starts = ['0', '1', '2', '3']
+	cp = current_positions
+
+	neighbor_states = []
+
+	for i in range(len(starts)):
+
+		start = starts[i]
+
+		unblocked = [k_name for k_name in to_collect if keys_d[start][k_name]["dependencies"].issubset( collected ) and not np.isinf(keys_d[start][k_name]["dist"])]
+
+		# todo improve this
+		if i==0:
+			neighbor_candidates = [(ub, cp[1], cp[2], cp[3], frozenset(collected.union(ub))) for ub in unblocked]
+		elif i==1:
+			neighbor_candidates = [(cp[0], ub, cp[2], cp[3], frozenset(collected.union(ub))) for ub in unblocked]
+		elif i==2:
+			neighbor_candidates = [(cp[0], cp[1], ub, cp[3], frozenset(collected.union(ub))) for ub in unblocked]
+		elif i==3:
+			neighbor_candidates = [(cp[0], cp[1], cp[2], ub, frozenset(collected.union(ub))) for ub in unblocked]
+
+		neighbor_states += [candidate for candidate in neighbor_candidates if not candidate in closedSet]
 
 	return neighbor_states
 
 
-def is_unblocked(k_name, keys_d, collected, known_unblocked_keys):
+def h(base_state, to_collect, keys_d):
+	
+	## sum of max individual distances within each quadrant
+	## for more details see 18a
+	total = 0
+	for key_name in base_state[:4]:
 
-	if k_name in known_unblocked_keys:
-		return True
+		eligible = [target for target in to_collect if not np.isinf(keys_d[key_name][target]['dist'])]
 
-	return keys_d["start"][k_name]["dependencies"].issubset( collected )
+		if len(eligible)==0:
+			continue
 
+		total += max( [keys_d[key_name][target]['dist'] for target in eligible] )
+
+	return total
+
+# based on Wikipedia A* pseudocode
+def reconstruct_path(cameFrom, current_state):
+	cs = current_state
+	total_path = [(cs[0], cs[1], cs[2], cs[3])]
+	while cs in cameFrom.keys():
+		cs = cameFrom[cs]
+		total_path.insert(0, (cs[0], cs[1], cs[2], cs[3]))
+	return total_path
 
 
 def all_keys_collected(current_state, all_keys):
 
-	keys_collected = current_state[1]
+	keys_collected = current_state[-1]
 
 	return keys_collected == all_keys
 
@@ -232,15 +266,31 @@ def dijkstra(arr, x_start, y_start, keys_d):
 	arr_minDist[y_start,x_start] = 0
 
 	keys = set(keys_d.keys())
-	doors = set([v.upper() for v in keys_d.keys()])
+	doors = set([maybe_upper(v) for v in keys_d.keys()])
 	doors_passed = set()
 
 	dijkstra_rec(arr, x_start, y_start, arr_visited, arr_minDist, keys_d, keys, doors, doors_passed)
 
 	for c in keys:
-		keys_d[c]["dist"] = int( arr_minDist[ keys_d[c]['y'], keys_d[c]['x'] ] )
+		keys_d[c]["dist"] = maybe_int( arr_minDist[ keys_d[c]['y'], keys_d[c]['x'] ] )
  
 	return keys_d
+
+def maybe_upper(v):
+
+	try:
+		x = v.upper()
+		return x
+	except:
+		return v
+
+def maybe_int(v):
+
+	try:
+		x = int(v)
+		return x
+	except:
+		return v
 
 def dijkstra_rec(arr, x, y, arr_visited, arr_minDist, keys_d, keys, doors, doors_passed):
 
